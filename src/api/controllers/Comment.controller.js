@@ -1,4 +1,258 @@
+const Character = require("../models/Character.model");
+const Comment = require("../models/Comment.model");
+const Game = require("../models/Games.model");
+const User = require("../models/User.model");
 
+
+
+const createComment = async (req, res, next) => {
+    try {
+        const { idRecipient } = req.params;
+        
+        const findUser = await User.findById(idRecipient);
+        const findCharacter = await Character.findById(idRecipient);
+        const findGame = await Game.findById(idRecipient);
+        
+        if (findUser) {
+            const newComment = new Comment({
+                ...req.body,
+                recipientUser: idRecipient,
+                owner: req.user._id,
+            });
+
+            const savedComment = await newComment.save();
+            if (savedComment) {
+                try {
+                    await User.findByIdAndUpdate(req.user._id, {
+                        $push: { postedComments: newComment._id },
+                    });
+
+                    await User.findByIdAndUpdate(idRecipient, {
+                        $push: { commentsByOther: newComment._id },
+                    });
+
+                    return res.status(200).json({
+                        userOwner: await User.findById(req.user._id).populate(
+                            "commentsByOther postedComments"
+                        ),
+                        comment: newComment
+                    });
+                } catch (error) {
+                    return res.status(409).json({
+                        error: "Error al actualizar los usuarios",
+                        message: error.message,
+                    });
+                }
+            } else {
+                return res.status(409).json({
+                    error: "Error al guardar el comentario",
+                    message: "No se ha guardado el mensaje",
+                });
+            }
+        } else if (findCharacter) {
+            const newComment = new Comment({
+                ...req.body,
+                recipientCharacter: idRecipient,
+                owner: req.user._id,
+            });
+
+            const savedComment = await newComment.save();
+            if (savedComment) {
+                try {
+                    await User.findByIdAndUpdate(req.user._id, {
+                        $push: { postedComments: newComment._id},
+                    });
+
+                    await Character.findByIdAndUpdate(idRecipient, {
+                        $push: { comments: newComment._id },
+                    });
+
+                    return res.status(200).json({
+                        userOwner: await User.findById(req.user._id).populate(
+                            "commentsByOther postedComments"
+                        ),
+                        comment: newComment,
+                    });
+                } catch (error) {
+                    return res.status(409).json({
+                        error: "Error al actualizar User y Character",
+                        message: error.message,
+                    });
+                }
+            } else {
+                return res.status(409).json({
+                    error: "Error al guardar el comentario",
+                    message: "No se guardado el comentario",
+                });
+            }
+        } else if (findGame) {
+            const newComment = new Comment({
+                ...req.body,
+                recipientGame: idRecipient,
+                owner: req.user._id,
+            });
+
+            const savedComment = await newComment.save();
+            if (savedComment) {
+                try {
+                    await User.findByIdAndUpdate(req.user._id, {
+                        $push: { postedComments: newComment._id},
+                    });
+
+                    await Game.findByIdAndUpdate(idRecipient, {
+                        $push: { comments: newComment._id},
+                    });
+
+                    return res.status(200).json({
+                        userOwner: await User.findById(req.user._id).populate(
+                            "commentsByOther postedComments"
+                        ),
+                        comment: newComment,
+                    });
+                } catch (error) {
+                    return res.status(409).json({
+                        error: "Error al actualizar user y games",
+                        message: error.message,
+                    });
+                }
+            } else {
+                return res.status(409).json({
+                    error: "Error al guardar el comentario",
+                    message: "No se guardado el comentario",
+                });
+            }
+        } else {
+            return res.status(404).json({
+                error: "El idRecipient no pertenece a ningun registro",
+                message: "El destinatario no exite",
+            });
+        }
+    } catch (error) {
+        return res
+        .status(409)
+        .json({ error: "Error al crear el comentario", message: error.message});
+    }
+};
+
+const createCommentGame = async (req, res, next) => {
+    try {
+        const { idRecipient } = req.params;
+        const findGame = await Game.findById(idRecipient);
+        if (findGame) {
+            const newComment = new Comment({
+                ...req.body,
+                recipientGame: idRecipient,
+                owner: req.user._id,
+            });
+
+            const savedComment = await newComment.save();
+            if (savedComment) {
+                try {
+                    await Game.findByIdAndUpdate(idRecipient, {
+                        $push: { comments: newComment._id },
+                    });
+
+                    return res.status(200).json({
+                        userOwner: await User.findById(req.user._id).populate(
+                            "commentsByOther postedComments"
+                        ),
+                        comment: newComment,
+                    });
+                } catch (error) {
+                    return res.status(409).json({
+                        error: "Error al actualizar el juego",
+                        message: error.message,
+                    });
+                }
+            } else {
+                return res.status(409).json({
+                    error: "Error al guardar el comentario",
+                    message: "No se ha guardado el comentario",
+                });
+            }
+        } else {
+            return res.status(404).json({
+                error: "El idRecipient no pertenece a ningún registro",
+                message: "El destinatario no existe",
+            });
+        }
+    } catch (error) {
+        return res.status(409).json({
+            error: "Error al crear el comentario",
+            message: error.message,
+        });
+    }
+};
+
+const deleteComment = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const commentDB = await Comment.findById(id);
+        if (commentDB) {
+            await Comment.findByIdAndDelete(id);
+            const commentDelete = await Comment.findById(id);
+            if (!commentDelete) {
+                try {
+                    await User.findByIdAndUpdate(commentDB.owner, {
+                        $pull: { postedComments: id },
+                    });
+
+                    await User.updateMany(
+                        { commentsFav: id },
+                        { $pull: { commentsFav: id} }
+                    );
+
+                    await User.findByIdAndUpdate(commentDB.recipientUser, {
+                        $pull: { commentsByOther: id },
+                    });
+
+                    await Character.findByIdAndUpdate(commentDB.recipientCharacter, {
+                        $pull: { comments: id},
+                    });
+
+                    await Game.findByIdAndUpdate(commentDB.recipientGame, {
+                        $pull: { comments: id},
+                    });
+
+                    return res.status(200).json("comentario borrado");
+                } catch (error) {
+                    return res.status(409).json({
+                        error: "Error al actualizar registros después de borrar el comentario",
+                        message: error.message,
+                    });
+                }
+            }
+        } else {
+            return res.status(404).json({
+                error: "No se ha borrado el comentario",
+                message: "El comentario no existe",
+            });
+        }
+    } catch (error) {
+        return res
+        .status(409)
+        .json({ error: "Error al borrar el comentario", message: error.message });
+    }
+};
+
+const getAllComment = async (req, res, next) => {
+    try {
+        const allComment = await Comment.find();
+        if (allComment.length > 0) {
+            return res.status(200).json(allComment);
+        } else {
+            return res.status(404).json("No se han encontrado comentarios");
+        }
+    } catch (error) {
+        return res
+            .status(409)
+            .json({ error: "Error al buscar comentarios", message: error.message });
+    }
+};
+
+module.exports = { createComment, deleteComment, createCommentGame, getAllComment };
+
+/*
 //!---------------------- POST- CREATE --------------------
 
 
@@ -329,7 +583,10 @@ const deleteComment = async (req, res, next) => {
         return res
         .status(409)
         .json({ error: "Error al borrar el comentario", message: error.message });
-    }
-};
+    };
+   
+ 
 
-module.exports = { createComment, deleteComment, createCommentGame };
+    };
+
+module.exports = { createComment, deleteComment, createCommentGame, };*/
