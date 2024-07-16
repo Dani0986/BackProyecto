@@ -21,7 +21,7 @@ const Character = require("../models/Character.model");
 const registerLargo = async (req, res, next) => {
   // vemos si hay imagen en la solicitud
   const catchImg = req.file?.path;
-
+console.log("req", req.body)
   try {
     // indexes
     await User.syncIndexes();
@@ -32,7 +32,7 @@ const registerLargo = async (req, res, next) => {
     // destructuring del name y email del req.body
     const { email, name } = req.body;
 
-    // Buscamos en la BD si hay algun usuario ya creado con ese email o ese nombre -->
+    console.log("email", email)// Buscamos en la BD si hay algun usuario ya creado con ese email o ese nombre -->
     //** FINDONE metodo de mongoose para encontrar elementos coincidentes
     const userExist = await User.findOne(
       {
@@ -42,13 +42,14 @@ const registerLargo = async (req, res, next) => {
         name: req.body.name,
       }
     );
-
+    console.log(userExist)
     // sino existe el usuario procedemos a crearlo
     if (!userExist) {
       //** LO CREAMOS */ --> con el código random y con lo que trae el req.body
-
+      
+      
       const newUser = new User({ ...req.body, confirmationCode });
-      // verificamos si hay imagen en la solicitud, y sino hay le ponemos una imagen por defecto
+      console.log(newUser)// verificamos si hay imagen en la solicitud, y sino hay le ponemos una imagen por defecto
       if (req.file) {
         newUser.image = req.file.path;
       } else {
@@ -56,7 +57,7 @@ const registerLargo = async (req, res, next) => {
         newUser.image =
           "https://res.cloudinary.com/dhkbe6djz/image/upload/v1689099748/UserFTProyect/tntqqfidpsmcmqdhuevb.png";
       }
-
+     
       // Tenemos creado el user con los datos, ahora debemos guardarlo
 
       try {
@@ -384,26 +385,155 @@ const checkNewUser = async (req, res, next) => {
 
 
 //!  LOGIN 
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    console.log('Login attempt:', { email, password });
 
+    const userDB = await User.findOne({ email });
+    if (!userDB) {
+      console.log('Usuario no encontrado:', email);
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+        message: "Usuario no registrado",
+      });
+    }
 
+    const isPasswordValid = bcrypt.compareSync(password, userDB.password);
+    if (!isPasswordValid) {
+      console.log('Contraseña incorrecta para el usuario:', email);
+      return res.status(401).json({
+        error: "Contraseña incorrecta",
+        message: "Inténtalo otra vez",
+      });
+    }
+
+    const token = generateToken(userDB._id, email);
+    console.log('Usuario autenticado correctamente:', email);
+    return res.status(200).json({
+      user: userDB,
+      token,
+    });
+
+  } catch (error) {
+    console.error('Error en el login:', error.message);
+    return res.status(500).json({
+      error: "Error en el servidor",
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { login };
+/*const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    console.log('Login attempt:', { email, password });
+
+    const userDB = await User.findOne({ email });
+    if (!userDB) {
+      console.log('Usuario no encontrado:', email);
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+        message: "Usuario no registrado",
+      });
+    }
+
+    const isPasswordValid = bcrypt.compareSync(password, userDB.password);
+    if (!isPasswordValid) {
+      console.log('Contraseña incorrecta para el usuario:', email);
+      return res.status(401).json({
+        error: "Contraseña incorrecta",
+        message: "Inténtalo otra vez",
+      });
+    }
+
+    const token = generateToken(userDB._id, email);
+    console.log('Usuario autenticado correctamente:', email);
+    return res.status(200).json({
+      user: userDB,
+      token,
+    });
+
+  } catch (error) {
+    console.error('Error en el login:', error.message);
+    return res.status(500).json({
+      error: "Error en el servidor",
+      message: error.message,
+    });
+  }
+};*/
+
+/*const login = async (req, res, next) => {
+  try {
+    // Hacemos destructuring del email y la pass del req.body
+    const { email, password } = req.body;
+    console.log(req.body);
+
+    // Buscamos a este usuario por el email
+    const userDB = await User.findOne({ email });
+    console.log(email);
+
+    // Comprobamos si el user existe en la DB
+    if (!userDB) {
+      // Error user no encontrado
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+        message: "Usuario no registrado",
+      });
+    }
+
+    // Tenemos que comparar las contraseñas
+    // Contraseña de base de datos está ENCRIPTADA
+    // Usamos bcrypt para poder comparar la pass con una pass encriptada
+    const isPasswordValid = bcrypt.compareSync(password, userDB.password);
+    
+    if (!isPasswordValid) {
+      // Las contraseñas no coinciden
+      return res.status(401).json({
+        error: "Contraseña incorrecta",
+        message: "Inténtalo otra vez",
+      });
+    }
+
+    // Si coinciden, generamos el token
+    const token = generateToken(userDB._id, email);
+
+    // Una vez generado, enviamos una respuesta con el user y este token
+    return res.status(200).json({
+      user: userDB,
+      token,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error en el servidor",
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { login };*/
+/*
 const login = async (req, res, next) => {
   try {
     // hacemos destructuring del email y la pass del req.body
     const { email, password } = req.body;
-
+    console.log(req.body)
     // buscamos a este usuario por el email
     const userDB = await User.findOne({ email });
-
+    console.log(email)
     // Comprobamos si el user existe en la DB
     if (userDB) {
       // Tenemos que comparar las contraseñas
-      //** Contraseña de base de datos esta ENCRIPTADA */
-      //** BCRYP --> para poder comparar la pass una con una pass encriptada */
+      //** Contraseña de base de datos esta ENCRIPTADA 
+      //** BCRYP --> para poder comparar la pass una con una pass encriptada 
       if (bcrypt.compareSync(password, userDB.password)) {
+        
         // si coinciden devuelve true y puedo generar el token
-        //** TOKEN */
+        //** TOKEN 
         const token = generateToken(userDB._id, email);
-
+        
         // Una vez generado enviamos una respuesta con el user y este token
         return res.status(200).json({
           user: userDB,
@@ -428,7 +558,7 @@ const login = async (req, res, next) => {
       .json({ error: "Error en el login", message: error.message });
   }
 };
-
+*/
 
 //! AUTOLOGIN 
 

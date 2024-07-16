@@ -2,7 +2,8 @@
 
 const express = require("express");
 const dotenv = require("dotenv");
-
+const multer = require('multer');
+const bodyParser = require('body-parser');
 dotenv.config();
 
 //! ------------------- conexión base de datos y ejecucion
@@ -28,6 +29,17 @@ app.use(cors());
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ limit: "5mb", extended: false }));
+//--
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'ruta/donde/guardar/las/imagenes'); // Define la ruta donde se guardarán las imágenes
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname); // Define el nombre del archivo
+  },
+});
+const upload = multer({ storage: storage }).single('Imagen');
 
 //! -------------------- RUTAS ------------------
 
@@ -46,7 +58,8 @@ app.use("/api/v1/comment", CommentRoutes);
 //! ----------------- generamos ERROR cuando no se encuentre - coincida la ruta
 
 app.use("*", (req, res, next) => {
-  const error = new Error("Ruta no encontrada");
+ console.log(req)
+  const error =new Error("Ruta no encontrada");
   error.status = 404;
   return next(error);
 });
@@ -70,3 +83,5 @@ const PORT = process.env.PORT;
 app.listen(PORT, () =>
   console.log(`Servidor escuchando en el puerto http://localhost:${PORT}`)
 );
+
+
